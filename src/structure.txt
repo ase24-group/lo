@@ -1,0 +1,31 @@
+NUM(s: string, n: number)
+	txt=s     column name
+	at=n      column position
+	n         number of entries
+	mu        mean of entries
+	m2        used to calculate sd
+	hi        used when normalizing
+	lo        used when normalizing
+	heaven    0,1 for min,maximization
+
+SYM(s: string, n: number)
+	txt=s     column name
+	at=n      column position
+	n         number of entries
+	has       dictionary mapping symbol to its count
+	mode      most frequent symbol
+	most      count of the most frequent symbol
+
+COLS(row: ROW)
+	x         independent columns
+	y         dependent columns (anthing ending in -,+,!)
+	all       all the columns
+	klass     just the klass column (column ending with !)
+	names     names of all the columns
+
+ROW(t: {})
+	cells=t   list of values in a row
+
+DATA(src: string, fun: callback)
+	rows      list of COLS (2D)
+	cols      single COL (1D)
