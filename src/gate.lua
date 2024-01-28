@@ -33,10 +33,13 @@ function NUM.new(s, n)
 
 -- Update
 function NUM:add(x,     d)
+  -- #josh ignore unknown numbers in the CSV
   if x ~="?" then
     self.n  = self.n+1
     d       = x - self.mu
     self.mu = self.mu + d/self.n
+    -- #josh this is the second moment calculation, that takes us to the standard deviation
+    -- #josh takes a lot of algebra to prove!
     self.m2 = self.m2 + d*(x - self.mu)
     self.lo = math.min(x, self.lo)
     self.hi = math.max(x, self.hi) end end
@@ -83,6 +86,7 @@ function SYM:small() return 0 end
 
 -- Likelihood
 function SYM:like(x, prior)
+  -- #josh the.m is a low frequency constant designed to add some wiggle room
   return ((self.has[x] or 0) + the.m*prior)/(self.n +the.m) end
 
 -- ### Columns
@@ -124,21 +128,27 @@ function ROW:d2h(data, d, n)
   for _, col in pairs(data.cols.y) do
       n = n + 1
       d = d + math.abs(col.heaven - col:norm(self.cells[col.at])) ^ 2 end
+  -- #josh this is to ensure that the distances are always 0 to 1
+  -- #josh so, we are dividing by the number of dimensions, square rooted
+  -- #josh we then sort the rows based on d2h, small to big
   return d ^ .5 / n ^ .5 end
 
 -- Return the `data` (from `datas`) that I like the best
+-- #josh Runs through all the datas and returns the data that is liked the most
 function ROW:likes(datas,       n,nHypotheses,most,tmp,out)
   n,nHypotheses = 0,0
   for k,data in pairs(datas) do
     n = n + #data.rows
     nHypotheses = 1 + nHypotheses end
   for k,data in pairs(datas) do
+    -- #josh this is a call into ROW:like
     tmp = self:like(data,n,nHypotheses)
     if most==nil or tmp > most then most,out = tmp,k end end
   return out,most end
 
 -- How much does ROW like `self`. Using logs since these 
 -- numbers are going to get very small.
+-- #josh When playing golf, we only have nHypotheses = 2
 function ROW:like(data,n,nHypotheses,       prior,out,v,inc)
   prior = (#data.rows + the.k) / (n + the.k * nHypotheses)
   out   = math.log(prior)
@@ -191,12 +201,21 @@ function DATA:stats(cols,fun,ndivs,    u)
   return u end
 
 -- Gate.
+-- #josh moving an example from dark into light
+-- #josh this is where the sequential model optimization happens
 function DATA:gate(budget0,budget,some)
   local rows,lite,dark
   local stats,bests = {},{}
+  -- #josh you want to do it multiple times, with different orders
+  -- #josh it's just good practice to do a shuffle
   rows = l.shuffle(self.rows)
+  -- #josh check that the size of lite is less than that of dark
+  -- #josh lite divides into best and rest
+  -- #josh lua is 1 indexed, so for python, make it (rows, 0, budget0)
+  -- #josh example: lite, dark = b[:x], b[x:]
   lite = l.slice(rows,1,budget0)
   dark = l.slice(rows, budget0+1)
+  -- #josh pick something from the dark
   for i=1,budget do
     local best, rest     = self:bestRest(lite, (#lite)^some)  -- assess
     local todo, selected = self:split(best,rest,lite,dark)
@@ -211,11 +230,16 @@ function DATA:split(best,rest,lite,dark)
   selected = DATA.new{self.cols.names}
   max = 1E30
   out = 1
+  -- #josh find the index in the dark that maximizes this intuition
+  -- #josh in SMO, we seek zones of active confusion
   for i,row in pairs(dark) do
     local b,r,tmp
     b = row:like(best, #lite, 2)
     r = row:like(rest, #lite, 2)
     if b>r then selected:add(row) end
+    -- #josh 1/b-r is maximal when they are close to each other
+    -- #josh two highly opionionated friends with widely different opinions, but very close to each other
+    -- #josh i like ariana grande with 0.9, taylor swift with 0.9, we have different **strong** opinions
     tmp = math.abs(b+r) / math.abs(b-r+1E-300)
     --print(b,r,tmp) 
     if tmp > max then out,max = i,tmp end end  
@@ -224,6 +248,7 @@ function DATA:split(best,rest,lite,dark)
 -- Sort on distance to heaven, split off the first `want` items to return
 -- a `best` and `rest` data.
 function DATA:bestRest(rows, want, best, rest, top)
+    -- #josh we sort based on distance to heaven
     table.sort(rows, function(a, b) return a:d2h(self) < b:d2h(self) end)
     best, rest = { self.cols.names }, { self.cols.names }
     for i, row in pairs(rows) do
@@ -403,7 +428,12 @@ local function learn(data,row,  my,kl)
   kl   = row.cells[data.cols.klass.at]
   if my.n > 10 then
     my.tries = my.tries + 1
+    -- #josh make the guess before updating the data
+    -- #josh this is where the accuracy is computed
+    -- #josh if it's right, give it a 1, else a 0
     my.acc   = my.acc + (kl == row:likes(my.datas) and 1 or 0) end
+  -- #josh this is where the data is updated
+  -- #josh DON'T run this before the previous stage
   my.datas[kl] = my.datas[kl] or DATA.new{data.cols.names}
   my.datas[kl]:add(row) end 
 
